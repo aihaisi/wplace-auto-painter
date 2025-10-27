@@ -11,13 +11,13 @@ from fuzzywuzzy import fuzz, process
 
 
 class AutoPainterApp:
-    def __init__(self, root, color_map):
+    def __init__(self, root):
         self.root = root
         self.root.title("wplace-auto-painter")
         self.root.geometry("600x400")
         self.root.resizable(True, True)
         
-        self.color_map = color_map
+        self.color_map = init_color()
         self.current_color = 'black'  # 默认颜色
         self.target_image_path = self.color_map[self.current_color]
         self.all_colors = list(self.color_map.keys())
@@ -29,6 +29,9 @@ class AutoPainterApp:
         # 运行状态
         self.running = False
         self.thread = None
+        
+        # 未匹配次数
+        self.unmatched_count = 0
         
         self.create_widgets()
         keyboard.add_hotkey('esc', self.stop_script)
@@ -96,7 +99,7 @@ class AutoPainterApp:
         # 新增ESC提示（第4行）
         tk.Label(
             main_frame,
-            text="ESC键退出绘制，绘制失败时尝试缩放地图至合适大小",
+            text="ESC键退出绘制，绘制失败时尝试缩放地图至合适大小\n超出一段时间未匹配到颜色会自动提交并停止",
             font=('Arial', 9),
             fg='gray'
         ).grid(row=4, column=0, pady=(0, 10), sticky="s")
@@ -220,7 +223,16 @@ class AutoPainterApp:
                     
                     pyautogui.moveTo(center_x, center_y)
                     pyautogui.click()
+                    self.unmatched_count = 0  # 重置未匹配计数
                     print(f"点击位置: ({center_x}, {center_y})")
+                    
+                else:
+                    self.unmatched_count += 1
+                    if self.unmatched_count > 50:
+                        self.click_submit()
+                        messagebox.showwarning("提示", "多次未匹配到目标图像，已尝试提交并停止点击")
+                        self.stop_script()
+                
         except Exception as e:
             messagebox.showerror("错误", f"运行出错: {str(e)}")
             self.stop_script()
@@ -232,6 +244,27 @@ class AutoPainterApp:
             self.thread.join(timeout=1)
         self.root.destroy()
         sys.exit()
+        
+    def click_submit(self):
+        """点击提交按钮"""
+        self.submit_btn_url = "src/icon/submit.png"
+        self.submit_btn_image = cv2.imread(self.submit_btn_url)
+        target_height, target_width = self.submit_btn_image.shape[:2]
+
+        screenshot = pyautogui.screenshot()
+        screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+        
+        result = cv2.matchTemplate(screenshot, self.submit_btn_image, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+        
+        threshold = 0.8
+        if max_val >= threshold:
+            top_left = max_loc
+            center_x = top_left[0] + target_width // 2
+            center_y = top_left[1] + target_height // 2
+            pyautogui.moveTo(center_x, center_y)
+            pyautogui.click()
 
 
 def init_color():
@@ -256,8 +289,7 @@ def init_color():
 
 
 if __name__ == "__main__":
-    color_map = init_color()
     root = tk.Tk()
-    app = AutoPainterApp(root, color_map)
+    app = AutoPainterApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
