@@ -1,6 +1,8 @@
-### Recommend to use uv to install dependencies.
+# wplace-auto-painter
 
-```
+## Recommend to use uv to install dependencies
+
+```python
 uv sync
 ```
 
