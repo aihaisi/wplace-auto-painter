@@ -186,6 +186,7 @@ class AutoPainterApp:
             self.start_btn.config(state=tk.NORMAL)
             
             # 恢复窗口
+            time.sleep(0.5)  # 等待线程安全退出
             self.root.deiconify()
     
     def start_paint(self):
