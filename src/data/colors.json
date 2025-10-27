@@ -1,0 +1,13 @@
+[
+    "black", "darkgray", "gray", "mediumgray", "lightgray", "white",
+    "deepred", "darkred", "red", "lightred", "darkorange", "orange",
+    "gold", "yellow", "lightyellow", "darkgoldenrod", "goldenrod",
+    "lightgoldenrod", "darkolive", "olive", "lightolive", "darkgreen",
+    "green", "lightgreen", "darkteal", "teal", "lightteal", "darkcyan",
+    "cyan", "lightcyan", "darkblue", "blue", "lightblue", "darkindigo",
+    "indigo", "lightindigo", "darkslateblue", "slateblue", "lightslateblue",
+    "darkpurple", "purple", "lightpurple", "darkpink", "pink", "lightpink",
+    "darkpeach", "peach", "lightpeach", "darkbrown", "brown", "lightbrown",
+    "darktan", "tan", "lighttan", "darkbeige", "beige", "lightbeige",
+    "darkstone", "stone", "lightstone", "darkslate", "slate", "lightslate"
+]
