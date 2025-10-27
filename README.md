@@ -1,5 +1,7 @@
 ### Recommend to use uv to install dependencies.
 
--`uv pip install -r requirements.txt`
+```
+uv sync
+```
 
 ### than run the `main.py`
