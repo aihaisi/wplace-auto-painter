@@ -2,7 +2,7 @@
 
 ## Recommend to use uv to install dependencies
 
-```python
+```bash
 uv sync
 ```
 
