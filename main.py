@@ -12,7 +12,7 @@ from src.gui import AutoPainterApp
 def main():
     color_map = load_color_map()
     root = tk.Tk()
-    app = AutoPainterApp(root, color_map)
+    app = AutoPainterApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
 
