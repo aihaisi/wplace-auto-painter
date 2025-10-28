@@ -52,20 +52,28 @@ class AutoPainterApp:
         keyboard.add_hotkey('esc', self.stop_script)
 
     def create_widgets(self):
+        # 主框架（使用grid布局）
         main_frame = tk.Frame(self.root)
         main_frame.grid(row=0, column=0, sticky="nsew")
-
+        
+        # 配置主框架的网格
         main_frame.grid_columnconfigure(0, weight=1)
-        for i in range(5):
+        for i in range(3):  # 3行
             main_frame.grid_rowconfigure(i, weight=1)
-
-        tk.Label(main_frame, text="wplace-auto-painter", font=('Arial', 16)).grid(row=0, column=0, pady=10, sticky="n")
-
+        
+        # 标题（第0行）
+        tk.Label(
+            main_frame, 
+            text="wplace-auto-painter", 
+            font=('Arial', 16)
+        ).grid(row=0, column=0, pady=10, sticky="n")
+        
+        # 颜色选择（带模糊匹配）
         color_frame = tk.Frame(main_frame)
         color_frame.grid(row=1, column=0, pady=10, sticky="n")
-
+        
         tk.Label(color_frame, text="选择颜色:").pack(side=tk.LEFT, padx=5)
-
+        
         self.color_var = tk.StringVar(value=self.current_color)
         self.color_dropdown = ttk.Combobox(
             color_frame,
@@ -75,22 +83,42 @@ class AutoPainterApp:
             width=15
         )
         self.color_dropdown.pack(side=tk.LEFT)
-
+        
+        # 事件绑定（优化版）
         self.color_dropdown.bind("<KeyRelease>", self.on_color_input)
         self.color_dropdown.bind("<FocusOut>", self.on_focus_out)
         self.color_dropdown.bind("<Return>", lambda e: self.validate_color_selection())
         self.color_dropdown.bind("<<ComboboxSelected>>", lambda e: self.validate_color_selection())
-        self.color_dropdown.bind("<Down>", self.on_down_arrow)
-
-        self.start_btn = tk.Button(main_frame, text="start", command=self.start_script, bg="green", fg="white", height=2, width=15)
+        self.color_dropdown.bind("<Down>", self.on_down_arrow)  # 新增下箭头键处理
+        
+        # 开始按钮（第2行）
+        self.start_btn = tk.Button(
+            main_frame,
+            text="start",
+            command=self.start_script,
+            bg="green",
+            fg="white",
+            height=2,
+            width=15
+        )
         self.start_btn.grid(row=2, column=0, pady=20, sticky="n")
-
+        
+        # 状态标签（第3行）
         self.status_var = tk.StringVar()
         self.status_var.set("准备就绪")
-        tk.Label(main_frame, textvariable=self.status_var).grid(row=3, column=0, sticky="s")
-
-        tk.Label(main_frame, text="ESC键退出绘制，绘制失败时尝试缩放地图至合适大小", font=('Arial', 9), fg='gray').grid(row=4, column=0, pady=(0, 10), sticky="s")
-
+        tk.Label(
+            main_frame, 
+            textvariable=self.status_var
+        ).grid(row=3, column=0, sticky="s")
+        
+        # 新增ESC提示（第4行）
+        tk.Label(
+            main_frame,
+            text="ESC键退出绘制，绘制失败时尝试缩放地图至合适大小\n超出一段时间未匹配到颜色会自动提交并停止",
+            font=('Arial', 9),
+            fg='gray'
+        ).grid(row=4, column=0, pady=(0, 10), sticky="s")
+        
         main_frame.grid_propagate(False)
 
     def on_down_arrow(self, event):
