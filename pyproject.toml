@@ -18,5 +18,6 @@ dependencies = [
     "pyperclip==1.11.0",
     "pyrect==0.2.0",
     "pyscreeze==1.0.1",
+    "python-levenshtein>=0.27.1",
     "pytweening==1.2.0",
 ]

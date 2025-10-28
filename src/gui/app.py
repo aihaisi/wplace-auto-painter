@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import threading
 import sys
 import keyboard
-from fuzzywuzzy import fuzz, process
+from rapidfuzz import fuzz, process
 
 from src.auto_paint.auto_painter import AutoPainter
 
