@@ -4,10 +4,10 @@ import threading
 import sys
 import keyboard
 from rapidfuzz import fuzz, process
-
+import time
 from src.auto_paint.auto_painter import AutoPainter
 from src.data import load_color_map
-import color_tackle
+from src import color_tackle
 
 
 class AutoPainterApp:
@@ -122,11 +122,13 @@ class AutoPainterApp:
         main_frame.grid_propagate(False)
 
     def on_down_arrow(self, event):
+        # 按下下箭头时调用函数
         if self.color_dropdown["values"]:
             self.color_dropdown.event_generate("<Down>")
         return "break"
 
     def on_color_input(self, event):
+        # 输入框输入时更新调用函数
         if event.keysym in ('BackSpace', 'Delete', 'Left', 'Right', 'Up', 'Down'):
             return
 
@@ -148,9 +150,14 @@ class AutoPainterApp:
                 self.predicted_color = None
 
     def on_focus_out(self, event):
+        # 输入框失去焦点时调用函数
         self.validate_color_selection()
 
     def validate_color_selection(self):
+        """
+        颜色验证函数\n
+        验证当前选择的颜色是否合法，若合法则确认选择，否则恢复上次选择。
+        """
         selected_color = self.color_var.get()
         if selected_color in self.color_map:
             self.confirm_color_selection(selected_color)
@@ -166,8 +173,11 @@ class AutoPainterApp:
             else:
                 messagebox.showwarning("无效选择", "请从下拉列表中选择有效颜色")
                 self.color_var.set(self.current_color)
-
     def confirm_color_selection(self, color):
+        """
+        确认颜色选择函数\n
+        确认当前选择的颜色是否合法，若合法则更新当前颜色和目标图片路径，否则恢复上次选择。
+        """
         if color in self.color_map:
             self.current_color = color
             self.target_image_path = self.color_map[color]
@@ -200,13 +210,16 @@ class AutoPainterApp:
             pass
 
     def stop_script(self):
+        # 停止脚本的执行
         if self.running:
             self.running = False
             self.status_var.set("已停止")
             self.start_btn.config(state=tk.NORMAL)
+            time.sleep(0.5)  # 确保线程有时间响应停止信号
             self.root.deiconify()
-
+ 
     def on_closing(self):
+        # 处理窗口关闭事件
         self.running = False
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1)

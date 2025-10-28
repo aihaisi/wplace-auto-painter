@@ -5,7 +5,7 @@ import numpy as np
 import pyautogui
 import keyboard
 from tkinter import messagebox
-import color_tackle
+from src import color_tackle
 
 
 class AutoPainter:

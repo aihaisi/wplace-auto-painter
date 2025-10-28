@@ -1,5 +1,4 @@
 import pyautogui
-import keyboard
 import cv2
 import numpy as np
 
