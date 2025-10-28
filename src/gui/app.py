@@ -6,17 +6,32 @@ import keyboard
 from rapidfuzz import fuzz, process
 
 from src.auto_paint.auto_painter import AutoPainter
+from src.data import load_color_map
+import color_tackle
 
 
 class AutoPainterApp:
-    def __init__(self, root, color_map):
+    def __init__(self, root, color_map=None):
         self.root = root
         self.root.title("wplace-auto-painter")
         self.root.geometry("600x400")
         self.root.resizable(True, True)
 
+        # 如果外部没有传入 color_map，则内部加载
+        if color_map is None:
+            # 优先使用已存在的数据加载器；若失败或返回空，则回退到 color_tackle 的默认颜色表
+            try:
+                color_map = load_color_map()
+            except Exception:
+                color_map = {}
+            if not color_map:
+                try:
+                    color_map = color_tackle.init_color()
+                except Exception:
+                    color_map = {}
+
         self.color_map = color_map
-        self.current_color = 'black' if 'black' in color_map else (next(iter(color_map), None))
+        self.current_color = 'black' if 'black' in self.color_map else (next(iter(self.color_map), None))
         self.target_image_path = self.color_map.get(self.current_color)
         self.all_colors = list(self.color_map.keys())
 
@@ -30,6 +45,8 @@ class AutoPainterApp:
 
         # painter 实例
         self.painter = AutoPainter()
+        # 记录当前输入的预测匹配（用于按回车快速选择）
+        self.predicted_color = None
 
         self.create_widgets()
         keyboard.add_hotkey('esc', self.stop_script)
@@ -89,8 +106,18 @@ class AutoPainterApp:
         if not current_text:
             self.color_dropdown["values"] = self.all_colors
         else:
-            matches = process.extractBests(current_text, self.all_colors, scorer=fuzz.partial_ratio, score_cutoff=60)
+            # 使用模糊匹配获取候选列表和最佳匹配
+            # rapidfuzz 使用 extract 并设置 limit 为所有颜色数
+            matches = process.extract(current_text, self.all_colors, scorer=fuzz.partial_ratio, score_cutoff=60, limit=len(self.all_colors))
+            # process.extract 返回 (choice, score, index) 元组
             self.color_dropdown["values"] = [match[0] for match in matches]
+
+            best = process.extractOne(current_text, self.all_colors, scorer=fuzz.partial_ratio)
+            if best and best[1] >= 60:
+                # 保存预测结果，按下回车时将优先确认
+                self.predicted_color = best[0]
+            else:
+                self.predicted_color = None
 
     def on_focus_out(self, event):
         self.validate_color_selection()
@@ -100,6 +127,11 @@ class AutoPainterApp:
         if selected_color in self.color_map:
             self.confirm_color_selection(selected_color)
         else:
+            # 优先使用 on_color_input 计算出的预测匹配（当用户在输入后直接按回车）
+            if getattr(self, 'predicted_color', None):
+                self.confirm_color_selection(self.predicted_color)
+                return
+
             matches = process.extractOne(selected_color, self.all_colors, scorer=fuzz.partial_ratio)
             if matches and matches[1] > 70:
                 self.confirm_color_selection(matches[0])

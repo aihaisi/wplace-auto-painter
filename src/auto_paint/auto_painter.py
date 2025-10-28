@@ -5,6 +5,7 @@ import numpy as np
 import pyautogui
 import keyboard
 from tkinter import messagebox
+import color_tackle
 
 
 class AutoPainter:
@@ -22,6 +23,9 @@ class AutoPainter:
         # 记录上一次找到的目标图像的 top-left 坐标 (x, y)
         # 下一次检测将从该位置开始按行优先（先向右再向下）选择下一个匹配
         self.last_found = None
+        # 未匹配计数与阈值（用于自动提交）
+        self.unmatched_count = 0
+        self.unmatched_threshold = 50
 
     def run(self, target_path_getter, running_getter):
         current_path = None
@@ -59,9 +63,24 @@ class AutoPainter:
                     top_left = (next_match[0], next_match[1])
                     # 点击；如果中途停止则退出 run
                     self._click(top_left, target_image)
+                    # 找到匹配则重置未匹配计数
+                    self.unmatched_count = 0
                 else:
                     # 没有匹配，重置上次位置以便下次从头开始
                     self.last_found = None
+                    # 未匹配计数递增，超出阈值则尝试点击提交按钮并停止
+                    self.unmatched_count += 1
+                    if self.unmatched_count > self.unmatched_threshold:
+                        try:
+                            color_tackle.click_submit()
+                        except Exception:
+                            # 如果外部模块不可用或执行失败，仍然优雅地停止
+                            pass
+                        try:
+                            messagebox.showwarning("提示", "多次未匹配到目标图像，已尝试提交并停止点击")
+                        except Exception:
+                            print("多次未匹配到目标图像，已尝试提交并停止点击")
+                        return
 
                 # 小延迟以避免 CPU 飙升
                 time.sleep(0.01)
