@@ -4,6 +4,8 @@ Paint pixels with opencv.
 
 Match the pixel's pictures and simulate mouse to click it. 
 
+### Recommended project : https://github.com/wyf7685/wplace-auto-painter-pw
+
 ---
 
 # How to start
