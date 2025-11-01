@@ -1,5 +1,6 @@
 from pathlib import Path
 from PIL import Image
+import json
 
 COLORS_MAP = [
     {"name": "Transparent", "rgb": (0, 0, 0)},
@@ -77,12 +78,46 @@ ALL_COLORS: dict[str, tuple[int, int, int]] = {
 
 PIXELS_DIR = Path("src/color")
 PIXELS_DIR.mkdir(exist_ok=True)
-UNIT_SIZE = 24
+UNIT_SIZE = 8
 PIXEL_SIZE = UNIT_SIZE * 3
 BACKGROUND = (158, 189, 255)
 
-im = Image.new("RGB", (PIXEL_SIZE, PIXEL_SIZE), BACKGROUND)
-for name, (r, g, b) in ALL_COLORS.items():
-    name = "".join(map(str.lower, name.split()))
-    im.paste((r, g, b), (UNIT_SIZE, UNIT_SIZE, UNIT_SIZE * 2, UNIT_SIZE * 2))
-    im.save(PIXELS_DIR / f"{name}.png")
+# 配置文件，用于持久化背景色
+BG_CONFIG = PIXELS_DIR / "background.json"
+
+# 如果存在配置文件，则读取持久化的 BACKGROUND
+if BG_CONFIG.exists():
+    try:
+        with open(BG_CONFIG, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if isinstance(data, dict) and 'background' in data:
+                b = data['background']
+                if (isinstance(b, (list, tuple)) and len(b) == 3
+                        and all(isinstance(c, int) for c in b)):
+                    BACKGROUND = (b[0], b[1], b[2])
+    except Exception:
+        # 读取失败则忽略，使用默认 BACKGROUND
+        pass
+
+def generate_color_by_background(backgroundcolor: tuple[int, int, int]) -> None:
+    """根据传入的 backgroundcolor 重新生成色块图并持久化 BACKGROUND 配置。
+
+    Args:
+        backgroundcolor: (r, g, b) 三元组
+    """
+    global BACKGROUND
+    BACKGROUND = backgroundcolor
+
+    # 持久化到配置文件，供下次程序启动读取
+    try:
+        with open(BG_CONFIG, 'w', encoding='utf-8') as f:
+            json.dump({'background': list(BACKGROUND)}, f)
+    except Exception:
+        # 写入失败不阻止后续图片生成
+        pass
+
+    im = Image.new("RGB", (PIXEL_SIZE, PIXEL_SIZE), BACKGROUND)
+    for name, (r, g, b) in ALL_COLORS.items():
+        name = "".join(map(str.lower, name.split()))
+        im.paste((r, g, b), (UNIT_SIZE, UNIT_SIZE, UNIT_SIZE * 2, UNIT_SIZE * 2))
+        im.save(PIXELS_DIR / f"{name}.png")

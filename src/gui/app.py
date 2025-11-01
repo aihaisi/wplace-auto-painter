@@ -5,16 +5,19 @@ import sys
 import keyboard
 from rapidfuzz import fuzz, process
 import time
+import pyautogui
+import ctypes
 from src.auto_paint.auto_painter import AutoPainter
 from src.data import load_color_map
 from src import color_tackle
+from src import generate_color
 
 
 class AutoPainterApp:
     def __init__(self, root, color_map=None):
         self.root = root
         self.root.title("wplace-auto-painter")
-        self.root.geometry("600x400")
+        self.root.geometry("650x500")
         self.root.resizable(True, True)
 
         # 如果外部没有传入 color_map，则内部加载
@@ -47,6 +50,10 @@ class AutoPainterApp:
         self.painter = AutoPainter()
         # 记录当前输入的预测匹配（用于按回车快速选择）
         self.predicted_color = None
+        # 颜色吸管是否活动的标志（避免未初始化访问）
+        self.color_picker_active = False
+        # 存放通过吸管选择的背景颜色 (r, g, b)
+        self.background_color = generate_color.BACKGROUND
 
         self.create_widgets()
         keyboard.add_hotkey('esc', self.stop_script)
@@ -68,7 +75,8 @@ class AutoPainterApp:
             font=('Arial', 16)
         ).grid(row=0, column=0, pady=10, sticky="n")
         
-        # 颜色选择（带模糊匹配）
+    # 注意: combobox 在下面创建，事件绑定应在创建之后执行（见下）
+            # 颜色选择（带模糊匹配）
         color_frame = tk.Frame(main_frame)
         color_frame.grid(row=1, column=0, pady=10, sticky="n")
         
@@ -83,8 +91,8 @@ class AutoPainterApp:
             width=15
         )
         self.color_dropdown.pack(side=tk.LEFT)
-        
-        # 事件绑定（优化版）
+
+        # 事件绑定（在 combobox 创建后绑定，避免未定义属性访问）
         self.color_dropdown.bind("<KeyRelease>", self.on_color_input)
         self.color_dropdown.bind("<FocusOut>", self.on_focus_out)
         self.color_dropdown.bind("<Return>", lambda e: self.validate_color_selection())
@@ -103,21 +111,71 @@ class AutoPainterApp:
         )
         self.start_btn.grid(row=2, column=0, pady=20, sticky="n")
         
-        # 状态标签（第3行）
+        # 新增颜色吸管区域
+        color_picker_frame = tk.Frame(main_frame)
+        color_picker_frame.grid(row=3, column=0, pady=10, sticky="n")
+        
+        # 颜色吸管按钮
+        self.picker_btn = tk.Button(
+            color_picker_frame,
+            text="选取背景颜色",
+            command=self.toggle_color_picker,
+            bg="lightblue",
+            height=1,
+            width=10
+        )
+        self.picker_btn.pack(side=tk.LEFT, padx=5)
+        
+        # 显示RGB值的标签
+        self.rgb_var = tk.StringVar()
+        self.rgb_var.set(f"RGB: {self.background_color}")
+        rgb_label = tk.Label(
+            color_picker_frame,
+            textvariable=self.rgb_var,
+            font=('Arial', 8),
+            bg='white',
+            relief='sunken',
+            width=18
+        )
+        rgb_label.pack(side=tk.LEFT, padx=5)
+        
+        # 颜色预览框
+        self.color_preview = tk.Label(
+            color_picker_frame,
+            text="   ",
+            font=('Arial', 10),
+            bg='#{:02x}{:02x}{:02x}'.format(self.background_color[0], self.background_color[1], self.background_color[2]),
+            relief='sunken',
+            width=3
+        )
+        self.color_preview.pack(side=tk.LEFT, padx=5)
+        
+        # 在第4行添加「生成背景色块」按钮
+        self.generate_bg_btn = tk.Button(
+            main_frame,
+            text="生成颜色模版",
+            command=self.on_generate_by_background,
+            bg="white",
+            height=1,
+            width=14
+        )
+        self.generate_bg_btn.grid(row=4, column=0, pady=6)
+
+        # 状态标签（第5行）
         self.status_var = tk.StringVar()
         self.status_var.set("准备就绪")
         tk.Label(
             main_frame, 
             textvariable=self.status_var
-        ).grid(row=3, column=0, sticky="s")
+        ).grid(row=5, column=0, sticky="s")
         
-        # 新增ESC提示（第4行）
+        # 新增ESC提示（第6行）
         tk.Label(
             main_frame,
             text="ESC键退出绘制，绘制失败时尝试缩放地图至合适大小\n超出一段时间未匹配到颜色会自动提交并停止",
             font=('Arial', 9),
             fg='gray'
-        ).grid(row=4, column=0, pady=(0, 10), sticky="s")
+        ).grid(row=6, column=0, pady=(0, 10), sticky="s")
         
         main_frame.grid_propagate(False)
 
@@ -184,6 +242,133 @@ class AutoPainterApp:
             self.status_var.set(f"已选择颜色: {color}")
         else:
             self.color_var.set(self.current_color)
+
+    def toggle_color_picker(self):
+        """切换颜色吸管状态"""
+        if not self.color_picker_active:
+            self.start_color_picker()
+        else:
+            self.stop_color_picker()
+    
+    def start_color_picker(self):
+        """启动颜色吸管"""
+        self.color_picker_active = True
+        self.picker_btn.config(text="🛑 停止吸管", bg="red")
+        self.status_var.set("颜色吸管已启动 - 移动鼠标查看颜色")
+        
+        # 在新线程中运行颜色吸管
+        self.color_picker_thread = threading.Thread(target=self.color_picker_loop, daemon=True)
+        self.color_picker_thread.start()
+    
+    def stop_color_picker(self):
+        """停止颜色吸管"""
+        self.color_picker_active = False
+        self.picker_btn.config(text="🎨 颜色吸管", bg="lightblue")
+        self.status_var.set("颜色吸管已停止")
+        self.rgb_var.set("RGB: (---, ---, ---)")
+        self.color_preview.config(bg='white')
+        
+        self.root.deiconify()
+    
+    def color_picker_loop(self):
+        """颜色吸管主循环"""
+        try:
+            while self.color_picker_active and not self.running:
+                if keyboard.is_pressed('esc'):
+                    self.stop_color_picker()
+                    break
+                
+                # 获取鼠标位置和颜色
+                x, y = pyautogui.position()
+                rgb = pyautogui.pixel(x, y)
+                
+                # 如果检测到鼠标左键按下，则视为确认选择
+                try:
+                    # VK_LBUTTON = 0x01, 高位为1表示按下
+                    if ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000:
+                        # 保存选择并在主线程处理后退出循环
+                        self.background_color = rgb
+                        self.root.after(0, lambda: self.on_color_click(rgb, x, y))
+                        break
+                except Exception:
+                    # 如果 ctypes 检测出现问题，不影响常规显示
+                    pass
+
+                # 更新GUI（需要在主线程中执行）
+                self.root.after(0, self.update_color_display, rgb, x, y)
+                
+                # 控制刷新频率
+                time.sleep(0.05)
+                
+        except Exception as e:
+            print(f"颜色吸管错误: {e}")
+            self.stop_color_picker()
+    
+    def update_color_display(self, rgb, x, y):
+        """更新颜色显示（在主线程中执行）"""
+        if not self.color_picker_active:
+            return
+        
+        # 更新RGB值显示
+        self.rgb_var.set(f"RGB: {rgb}")
+        
+        # 更新颜色预览框
+        hex_color = '#{:02x}{:02x}{:02x}'.format(rgb[0], rgb[1], rgb[2])
+        self.color_preview.config(bg=hex_color)
+        
+        # 可选：在状态栏显示坐标
+        self.status_var.set(f"坐标: ({x}, {y}) | RGB: {rgb}")
+
+
+    def on_color_click(self, rgb, x, y):
+        """处理鼠标左键点击选择：保存颜色、停止吸管并更新 UI"""
+        # 确保保存值（loop 已设置过一次，但再次设置以防万一）
+        self.background_color = rgb
+        # 停止吸管（会更新按钮与状态），然后恢复所选颜色显示
+        self.stop_color_picker()
+        # 如果窗口被最小化（例如 start_script 时调用了 iconify），确保恢复显示
+        try:
+            self.root.deiconify()
+            # 提升窗口并短暂置顶，确保它被显示在最前
+            try:
+                self.root.lift()
+            except Exception:
+                pass
+            try:
+                self.root.focus_force()
+            except Exception:
+                pass
+            try:
+                # 临时设置 topmost，使窗口显现在最前；随后恢复为非 topmost
+                self.root.attributes("-topmost", True)
+                self.root.after(250, lambda: self.root.attributes("-topmost", False))
+            except Exception:
+                pass
+        except Exception:
+            pass
+        # 更新显示为所选颜色
+        self.rgb_var.set(f"RGB: {rgb}")
+        hex_color = '#{:02x}{:02x}{:02x}'.format(rgb[0], rgb[1], rgb[2])
+        self.color_preview.config(bg=hex_color)
+        self.status_var.set(f"已设置背景颜色: {rgb} @({x},{y})")
+        
+
+
+    def on_generate_by_background(self):
+        """将当前选择的背景颜色传给 generate_color.generate_color_by_background。
+        如果函数尚未实现，则弹窗提示。
+        """
+        bg = self.background_color
+        if not bg:
+            messagebox.showwarning("未设置背景色", "请先使用颜色吸管选择一个背景颜色。")
+            return
+
+        try:
+            generate_color.generate_color_by_background(bg)
+            messagebox.showinfo("完成", "颜色模版生成完毕，在src/color文件下")
+        except Exception as e:
+            messagebox.showerror("错误", f"调用 generate_color_by_background 时出错: {e}")
+
 
     def start_script(self):
         if not self.running:
